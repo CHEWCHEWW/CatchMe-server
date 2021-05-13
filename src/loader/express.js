@@ -3,7 +3,7 @@ const cookieParser = require("cookie-parser");
 const createError = require("http-errors");
 const express = require("express");
 
-module.exports = function ({ app, routerLoader }) {
+module.exports = ({ app, routerLoader }) => {
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
