@@ -5,18 +5,18 @@ module.exports = ({ app }) => {
   const socketToRoom = {};
 
   io.on("connection", (socket) => {
-    socket.on("makeNewRoom", (roomID) => {
-      if (rooms[roomID]) {
+    socket.on("makeNewRoom", (roomId) => {
+      if (rooms[roomId]) {
         socket.emit("error", { message: "Room is already exist" });
       }
       
-      rooms[roomID] = {
-        creator: socket.id,
+      rooms[roomId] = {
+        creatorId: socket.id,
       };
 
-      socket.join(roomID);
+      socket.join(roomId);
 
-      socket.emit("successCreateRoom", { creaetor: socket.id, roomID: roomID });
+      socket.emit("createRoomSuccess", { creatorId: socket.id, roomId });
     });
 
     socket.on("somePlayerJoin", ({ message }) => {
