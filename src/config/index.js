@@ -14,9 +14,10 @@ const normalizePort = (val) => {
   }
 
   return false;
-}
+};
 
 module.exports = {
   port: normalizePort(process.env.PORT || "4000"),
   databaseURL: process.env.MONGO_DB_URL,
+  socketClientURL: process.env.CLIENT_URL,
 };

@@ -2,7 +2,7 @@ const debug = require("debug")("server:server");
 const http = require("http");
 
 const app = require("../app");
-const { port } = require("../src/config");
+const { port, socketClientURL } = require("../src/config");
 
 app.set("port", port);
 
@@ -12,7 +12,7 @@ const onError = (error) => {
   if (error.syscall !== "listen") {
     throw error;
   }
-
+  
   const bind = typeof port === "string"
     ? "Pipe " + port
     : "Port " + port;
@@ -40,7 +40,15 @@ const onListening = () => {
   debug("Listening on " + bind);
 };
 
-server.listen(port);
+server.listen(port, () => console.log(`server is listening ${port}`));
 
 server.on("error", onError);
 server.on("listening", onListening);
+
+app.io.attach(server, {
+  cors: {
+    origin: socketClientURL,
+    credential: true,
+    transports: ["websocket"],
+  },
+});
