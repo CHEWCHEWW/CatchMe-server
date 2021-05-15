@@ -13,6 +13,10 @@ module.exports = ({ app }) => {
       rooms[roomId] = {
         creatorId: socket.id,
         members: {},
+        score: {
+          rabbit: 0,
+          carrot: 0,
+        }
       };
 
       socket.emit("createRoomSuccess", { creatorId: socket.id, roomId });
@@ -39,18 +43,18 @@ module.exports = ({ app }) => {
 
       socketToRoom[socket.id] = roomId;
 
-      room.members[socket.id] = {
+      const userData = {
         userId: socket.id,
         isReady: false,
         role: "rabbit",
         username,
+      };
+
+      room.members[socket.id] = {
+        ...userData,
         x: (currentPlayerCount + 1) * 20,
         y: (currentPlayerCount + 1) * 220,
       };
-      // room.members.push({
-      //   userId: socket.id,
-        
-      // });
 
       io.in(roomId).emit("joinUserSuccess", {
         members: room.members,
@@ -77,7 +81,7 @@ module.exports = ({ app }) => {
         (member) => member.isReady === true
       );
 
-      io.in(roomId).emit("changeSomeUserState", { // 바뀐 것만 내려주기
+      io.in(roomId).emit("changeSomeUserState", {
         players: memberList,
       });
 
@@ -97,10 +101,34 @@ module.exports = ({ app }) => {
       socket.emit("loadPlayers", { otherPlayers: members, player: rooms[roomId]?.members[socket.id] });
     });
 
-    socket.on("movePlayer", ({ x, y }) => {
+    socket.on("movePlayer", ({ x, y, anims }) => {
       const roomId = socketToRoom[socket.id];
 
-      socket.to(roomId).emit("somePlayerMove", { x, y, id: socket.id });
+      socket.to(roomId).emit("somePlayerMove", { x, y, id: socket.id, anims });
+    });
+
+    socket.on("userGetCoin", ({ point, role }) => {
+      const roomId = socketToroom[socket.id];
+      const score = rooms[roomId]?.score;
+
+      score[role] += point;
+
+      io.in(roomId).emit("updateCount", { score });
+    });
+
+    socket.on("gameOver", ({ role }) => {
+      const roomId = socketToroom[socket.id];
+      const score = rooms[roomId]?.score;
+
+      const otherRole = role === "rabbit" ? "carrot" : "rabbit";
+
+      if (score[role] > score[otherRole]) {
+        socket.emit("getGameResult", { result: "win" });
+
+        return;
+      }
+
+      socket.emit("getGameResult", { result: "lose" });
     });
 
     socket.on("disconnect", () => {
@@ -115,7 +143,7 @@ module.exports = ({ app }) => {
       }
 
       delete socketToRoom[socket.id];
-
+      
       socket.broadcast.emit(`${socket.id} user left`);
 
       socket.emit("successToLeave");
