@@ -9,10 +9,10 @@ module.exports = ({ app }) => {
       if (rooms[roomId]) {
         socket.emit("error", { message: "Room is already exist" });
       }
-      
+
       rooms[roomId] = {
         creatorId: socket.id,
-        members: [],
+        members: {},
       };
 
       socket.emit("createRoomSuccess", { creatorId: socket.id, roomId });
@@ -27,27 +27,60 @@ module.exports = ({ app }) => {
         return;
       }
 
-      socket.join(roomId);
-      socketToRoom[socket.id] = roomId;
-      room.members.push({ userId: socket.id, isReady: false, role: "rabbit", username });
+      const currentPlayerCount = Object.keys(room?.members).length;
 
-      io.in(roomId).emit("joinUserSuccess", { members: room.members, creatorId: room.creatorId, userId: socket.id, roomId, username });
+      if (currentPlayerCount >= 4) {
+        socket.emit("error", { message: "Room is full" });
+
+        return;
+      }
+
+      socket.join(roomId);
+
+      socketToRoom[socket.id] = roomId;
+
+      room.members[socket.id] = {
+        userId: socket.id,
+        isReady: false,
+        role: "rabbit",
+        username,
+        x: (currentPlayerCount + 1) * 20,
+        y: (currentPlayerCount + 1) * 220,
+      };
+      // room.members.push({
+      //   userId: socket.id,
+        
+      // });
+
+      io.in(roomId).emit("joinUserSuccess", {
+        members: room.members,
+        creatorId: room.creatorId,
+        userId: socket.id,
+        roomId,
+        username,
+      });
     });
 
     socket.on("changeReadyState", ({ username, role, isReady }) => {
       const roomId = socketToRoom[socket.id];
-      
-      rooms[roomId].members?.forEach((member) => {
-        if (member.userId === socket.id) {
-          member.username = username;
-          member.role = role;
-          member.isReady = isReady;
-        }
+      const memberList = rooms[roomId].members;
+      const targetPlayer = memberList[socket.id];
+
+      memberList[socket.id] = {
+        ...targetPlayer,
+        username,
+        role,
+        isReady,
+      };
+
+      const isAllReady = Object.values(memberList).every(
+        (member) => member.isReady === true
+      );
+
+      io.in(roomId).emit("changeSomeUserState", { // 바뀐 것만 내려주기
+        players: memberList,
       });
 
-      const isAllReady = rooms[roomId].members.every((member) => member.isReady === true);
-      
-      io.in(roomId).emit("changeSomeUserState", { players: rooms[roomId].members });
       socket.emit("changeMyState", { username, role, isReady });
 
       if (isAllReady) {
@@ -55,19 +88,30 @@ module.exports = ({ app }) => {
       }
     });
 
+    socket.on("gameInit", () => {
+      const roomId = socketToRoom[socket.id];
+      const members = { ...rooms[roomId]?.members };
+
+      delete members[socket.id];
+
+      socket.emit("loadPlayers", { otherPlayers: members, player: rooms[roomId]?.members[socket.id] });
+    });
+
+    socket.on("movePlayer", ({ x, y }) => {
+      const roomId = socketToRoom[socket.id];
+
+      socket.to(roomId).emit("somePlayerMove", { x, y, id: socket.id });
+    });
+
     socket.on("disconnect", () => {
       const roomId = socketToRoom[socket.id];
 
-      const leftUsers = rooms[roomId]?.members.filter(
-        (member) => member.userId !== socket.id
-      );
-
-      if (leftUsers?.length) {
-        if (rooms[roomId]) {
-          rooms[roomId].members = leftUsers;
+      delete rooms[roomId]?.members[socket.id];
+      
+      if (rooms[roomId]) {
+        if (Object.keys(rooms[roomId].members).length === 0) {
+          delete rooms[roomId];
         }
-      } else {
-        delete rooms[roomId];
       }
 
       delete socketToRoom[socket.id];
