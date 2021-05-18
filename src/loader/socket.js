@@ -81,13 +81,15 @@ module.exports = ({ app }) => {
         (member) => member.isReady === true
       );
 
+      const memberCount = Object.values(memberList).length;
+
       io.in(roomId).emit("changeSomeUserState", {
         players: memberList,
       });
 
       socket.emit("changeMyState", { username, role, isReady });
 
-      if (isAllReady) {
+      if (isAllReady && memberCount > 1) {
         io.in(roomId).emit("startGame");
       }
     });
@@ -108,27 +110,36 @@ module.exports = ({ app }) => {
     });
 
     socket.on("userGetCoin", ({ point, role }) => {
-      const roomId = socketToroom[socket.id];
-      const score = rooms[roomId]?.score;
+      const roomId = socketToRoom[socket.id];
+
+      if (!rooms[roomId]) {
+        return;
+      }
+
+      const score = rooms[roomId].score;
 
       score[role] += point;
 
-      io.in(roomId).emit("updateCount", { score });
+      io.in(roomId).emit("updateCount", { score, id: socket.id });
     });
 
     socket.on("gameOver", ({ role }) => {
-      const roomId = socketToroom[socket.id];
+      const roomId = socketToRoom[socket.id];
       const score = rooms[roomId]?.score;
+
+      if (!rooms[roomId]) {
+        return;
+      }
 
       const otherRole = role === "rabbit" ? "carrot" : "rabbit";
 
       if (score[role] > score[otherRole]) {
-        socket.emit("getGameResult", { result: "win" });
-
+        socket.emit("getGameResult", { isWin: true });
+        console.log("hi");
         return;
       }
 
-      socket.emit("getGameResult", { result: "lose" });
+      socket.emit("getGameResult", { isWin: false });
     });
 
     socket.on("disconnect", () => {
