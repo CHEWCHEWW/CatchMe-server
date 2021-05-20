@@ -2,9 +2,13 @@ const express = require("express");
 const router = express.Router();
 
 const User = require("../models/user");
+const validate = require("./middlewares/validate");
+const { recordBodySchema, idParamsSchema } = require("../utils/validationSchema");
 
 router.post(
-  "/api/result/:id", // param과 body 모두 validation 해야함
+  "/api/result/:id",
+  validate(idParamsSchema, "params"),
+  validate(recordBodySchema, "body"),
   async (req, res, next) => {
     try {
       const { score, username } = req.body;
@@ -24,7 +28,7 @@ router.post(
 );
 
 router.get(
-  "/api/result", // param과 body 모두 validation 해야함
+  "/api/result",
   async (req, res, next) => {
     try {
       const records = await User.find({})
