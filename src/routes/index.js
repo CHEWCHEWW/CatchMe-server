@@ -32,8 +32,8 @@ router.get(
   async (req, res, next) => {
     try {
       const records = await User.find({})
-        .sort({ "score": 1 })
-        .limit(10);
+        .sort({ "score": -1 })
+        .limit(7);
       
       return res.json({ data: records, result: "ok" });
     } catch (error) {
