@@ -4,7 +4,9 @@ const router = express.Router();
 router.post(
   "/api/result/:id",
   (req, res, next) => {
-    const { record } = req.body;
+    const { score, username, id } = req.body;
+    console.log(score, username, id);
+
   },
 );
 

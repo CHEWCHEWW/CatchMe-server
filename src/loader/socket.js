@@ -177,9 +177,13 @@ module.exports = ({ app }) => {
 
       delete room.members[socket.id];
 
-      socket.emit("successLeaveRoom");
+      if (Object.keys(room.members).length === 0) {
+        delete rooms[roomId];
+      }
 
-      io.in(roomId).emit("changeSomeUserState", { players: room.members });
+      delete socketToRoom[socket.id];
+
+      io.in(roomId).emit("leaveSomeUser", { id: socket.id });
     });
 
     socket.on("disconnect", () => {
@@ -197,7 +201,6 @@ module.exports = ({ app }) => {
       }
 
       delete socketToRoom[socket.id];
-      console.log(300);
 
       io.in(roomId).emit("leaveSomeUser", { id: socket.id });
     });
