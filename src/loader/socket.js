@@ -67,7 +67,13 @@ module.exports = ({ app }) => {
 
     socket.on("changeReadyState", ({ username, role, isReady }) => {
       const roomId = socketToRoom[socket.id];
-      const memberList = rooms[roomId].members;
+      const room = rooms[roomId];
+
+      if (!room) {
+        return;
+      }
+
+      const memberList = room.members;
       const targetPlayer = memberList[socket.id];
 
       memberList[socket.id] = {
@@ -90,11 +96,28 @@ module.exports = ({ app }) => {
       socket.emit("changeMyState", { username, role, isReady });
 
       if (isAllReady && memberCount > 1) {
-        io.in(roomId).emit("startGame");
+        io.in(roomId).emit("allUsersReady");
       }
     });
+    
+    socket.on("startGame", () => {
+      const roomId = socketToRoom[socket.id];
+      const room = rooms[roomId]
 
-    socket.on("gameInit", () => {
+      if (!room) {
+        return;
+      }
+
+      const memberList = room.members;
+
+      Object.keys(memberList).map((member) => {
+        memberList[member].isReady = false;
+      });
+
+      socket.emit("changeSomeUserState", { players: memberList });
+    });
+
+    socket.on("initGame", () => {
       const roomId = socketToRoom[socket.id];
       const members = { ...rooms[roomId]?.members };
 
@@ -111,12 +134,13 @@ module.exports = ({ app }) => {
 
     socket.on("userGetCoin", ({ point, role }) => {
       const roomId = socketToRoom[socket.id];
+      const room = rooms[roomId];
 
-      if (!rooms[roomId]) {
+      if (!room) {
         return;
       }
 
-      const score = rooms[roomId].score;
+      const score = room.score;
 
       score[role] += point;
 
@@ -125,39 +149,57 @@ module.exports = ({ app }) => {
 
     socket.on("gameOver", ({ role }) => {
       const roomId = socketToRoom[socket.id];
-      const score = rooms[roomId]?.score;
+      const room = rooms[roomId];
 
-      if (!rooms[roomId]) {
+      if (!room) {
         return;
       }
 
+      const score = room.score;
       const otherRole = role === "rabbit" ? "carrot" : "rabbit";
 
       if (score[role] > score[otherRole]) {
         socket.emit("getGameResult", { isWin: true });
-        console.log("hi");
+
         return;
       }
 
       socket.emit("getGameResult", { isWin: false });
     });
 
+    socket.on("leaveRoom", () => {
+      const roomId = socketToRoom[socket.id];
+      const room = rooms[roomId];
+
+      if (!room) {
+        return;
+      }
+
+      delete room.members[socket.id];
+
+      socket.emit("successLeaveRoom");
+
+      io.in(roomId).emit("changeSomeUserState", { players: room.members });
+    });
+
     socket.on("disconnect", () => {
       const roomId = socketToRoom[socket.id];
+      const room = rooms[roomId];
 
-      delete rooms[roomId]?.members[socket.id];
-      
-      if (rooms[roomId]) {
-        if (Object.keys(rooms[roomId].members).length === 0) {
-          delete rooms[roomId];
-        }
+      if (!room) {
+        return;
+      }
+
+      delete room.members[socket.id];
+
+      if (Object.keys(room.members).length === 0) {
+        delete rooms[roomId];
       }
 
       delete socketToRoom[socket.id];
-      
-      socket.broadcast.emit(`${socket.id} user left`);
+      console.log(300);
 
-      socket.emit("successToLeave");
+      io.in(roomId).emit("leaveSomeUser", { id: socket.id });
     });
   });
 
