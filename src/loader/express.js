@@ -10,7 +10,7 @@ module.exports = ({ app, routerLoader }) => {
   app.use(cors());
 
   routerLoader({ app });
-
+  
   app.use((req, res, next) => {
     next(createError(404));
   });
