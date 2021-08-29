@@ -99,7 +99,7 @@ module.exports = ({ app }) => {
         io.in(roomId).emit("allUsersReady");
       }
     });
-    
+
     socket.on("startGame", () => {
       const roomId = socketToRoom[socket.id];
       const room = rooms[roomId]
